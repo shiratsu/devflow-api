@@ -1,4 +1,5 @@
 const { v4: uuidv4 } = require('uuid');
+const { differenceInDays } = require('date-fns');
 const store = require('../models/store');
 const { NotFoundError } = require('../utils/errors');
 
@@ -12,19 +13,20 @@ const getById = (id) => {
   if (!s) throw new NotFoundError(`Sprint ${id} not found`);
   return s;
 };
-// BUG: intentionally broken — good Claude Code debugging practice
 const getStats = (id) => {
   const sprint = getById(id);
   const tasks = store.tasks.filter(t => t.sprintId === id);
+  const done = tasks.filter(t => t.status === 'done').length;
+  const sprintDays = differenceInDays(new Date(sprint.endDate), new Date(sprint.startDate)) || 1;
   return {
     sprintId: id,
     sprintName: sprint.name,
     total: tasks.length,
-    done: tasks.filter(t => t.status === 'done').length,
+    done,
     inProgress: tasks.filter(t => t.status === 'in_progress').length,
     todo: tasks.filter(t => t.status === 'todo').length,
-    completionRate: tasks.length ? tasks.filter(t => t.status === 'done').length / tasks.length : 0,
-    velocity: tasks.filter(t => t.status === 'done').length,
+    completionRate: tasks.length ? Math.round(done / tasks.length * 100) : 0,
+    velocity: parseFloat((done / sprintDays).toFixed(2)),
   };
 };
 const create = ({ projectId, name, startDate, endDate }) => {
